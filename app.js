@@ -465,44 +465,6 @@ function renderProfile(state) {
                             <span style="margin-left: 0.5rem">Auditory (Voice)</span>
                         </label>
                     </div>
-
-                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-soft)">
-                        <label class="switch-row" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="window.serenity.toggleMusic()">
-                            <span>Ambient Music during Exercises</span>
-                            <div class="toggle-track ${state.preferences.musicEnabled ? 'active' : ''}">
-                                <div class="toggle-knob"></div>
-                            </div>
-                        </label>
-                        
-                        <div style="margin-top: 1rem;">
-                            <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.5rem">Select Soundtrack</label>
-                            <select class="input-select" style="width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-soft); background: var(--bg-white);" onchange="window.serenity.audio.setTrack(this.value)">
-                                <option value="auto" ${state.preferences.musicTrack === 'auto' ? 'selected' : ''}>Default (Exercise-Specific)</option>
-                                <option value="drone" ${state.preferences.musicTrack === 'drone' ? 'selected' : ''}>Binaural Focus (Synth)</option>
-                                <option value="bach" ${state.preferences.musicTrack === 'bach' ? 'selected' : ''}>Classical Bach (Relaxation)</option>
-                                <option value="nature" ${state.preferences.musicTrack === 'nature' ? 'selected' : ''}>Nature Rain (Grounding)</option>
-                            </select>
-                        </div>
-
-                        <button class="btn-secondary" style="width: 100%; margin-top: 1rem; font-size: 0.8rem" onclick="window.serenity.audio.play(); setTimeout(() => window.serenity.audio.stop(), 5000)">
-                            Test Sound (5s)
-                        </button>
-                        
-                        <div id="audio-status-box" style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.03); border-radius: 10px; font-size: 0.75rem;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                <span>Engine Status:</span>
-                                <span id="audio-engine-state" style="font-weight: 700; color: var(--accent-lavender);">Ready</span>
-                            </div>
-                            
-                            <!-- Audio Monitor (Canvas) -->
-                            <div style="background: #000; height: 30px; border-radius: 4px; overflow: hidden; position: relative;">
-                                <canvas id="audio-visualizer" style="width: 100%; height: 100%;"></canvas>
-                                <span style="position: absolute; top: 2px; right: 4px; font-size: 0.5rem; color: #666;">Audio Signal Monitor</span>
-                            </div>
-
-                            <button class="btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 0.4rem; font-size: 0.7rem;" onclick="window.serenity.audio.repair()">Repair & Test Audio</button>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="card">
@@ -540,16 +502,9 @@ function attachExerciseListeners(state) {
             const id = card.dataset.id;
             const container = document.getElementById('main-content');
             
-            // CRITICAL: Play music directly in this user interaction stack
-            if (state.preferences.musicEnabled) {
-                if (!state.preferences.youtubeActive) {
-                    window.serenity.audio.showUnlockOverlay();
-                    return;
-                }
-                window.serenity.audio.play(id);
+            if (window.serenity.audio) {
                 window.serenity.audio.playSFX('click');
             }
-
             if (id === 'breathing') startBreathing(container, { voice: state.preferences.learningStyle === 'auditory' });
             else if (id === 'reframing') startReframing(container, state);
             else if (id === 'centering') startCentering(container, state);
@@ -775,121 +730,9 @@ window.serenity = {
     setPref: (style) => {
         state.update({ preferences: { ...state.preferences, learningStyle: style } });
     },
-    toggleMusic: () => {
-        const enabled = !state.preferences.musicEnabled;
-        state.update({ preferences: { ...state.preferences, musicEnabled: enabled } });
-        if (!enabled) serenity.audio.stop();
-    },
     audio: {
-        player: null,
-        apiReady: false,
-        cueQueue: null,
-        playlists: {
-            bach: 'PLcGkkXtask_degi8Ebeh7QuVqugv6GJPX',
-            nature: 'PLuexPWX3qirhivHzsJRYK4i503oEZylZ7',
-            focus: 'PLmc810SEMNsCAUZ7oRGNTlEnS-CX-xt_e'
-        },
-        init: () => {
-            if (window.YT && window.YT.Player && !serenity.audio.player) {
-                serenity.audio.player = new YT.Player('yt-player', {
-                    height: '0',
-                    width: '0',
-                    playerVars: {
-                        'autoplay': 0,
-                        'controls': 0,
-                        'disablekb': 1,
-                        'fs': 0,
-                        'rel': 0,
-                        'showinfo': 0,
-                        'modestbranding': 1
-                    },
-                    events: {
-                        'onReady': (e) => {
-                            serenity.audio.apiReady = true;
-                            if (serenity.audio.cueQueue) {
-                                serenity.audio.play(serenity.audio.cueQueue);
-                                serenity.audio.cueQueue = null;
-                            }
-                        }
-                    }
-                });
-            }
-        },
-        play: (exerciseType = null) => {
-            if (!state.preferences.musicEnabled) return;
-            serenity.audio.init();
-            
-            if (!serenity.audio.apiReady) {
-                serenity.audio.cueQueue = exerciseType;
-                return;
-            }
-
-            let trackKey = state.preferences.musicTrack;
-            if (trackKey === 'auto') {
-                if (exerciseType === 'breathing') trackKey = 'bach';
-                else if (exerciseType === 'centering') trackKey = 'nature';
-                else trackKey = 'focus';
-            }
-
-            const playlistId = serenity.audio.playlists[trackKey] || serenity.audio.playlists.bach;
-            
-            serenity.audio.player.loadPlaylist({
-                list: playlistId,
-                listType: 'playlist',
-                index: 0,
-                startSeconds: 0,
-                suggestedQuality: 'small'
-            });
-            serenity.audio.player.setShuffle(true);
-            serenity.audio.player.setLoop(true);
-            serenity.audio.player.unMute();
-            serenity.audio.player.setVolume(50);
-            
-            const signal = document.getElementById('audio-signal');
-            if (signal) { signal.classList.remove('hidden'); signal.classList.add('playing'); }
-        },
-        stop: () => {
-            if (serenity.audio.player && serenity.audio.player.stopVideo) {
-                serenity.audio.player.stopVideo();
-            }
-            const signal = document.getElementById('audio-signal');
-            if (signal) { signal.classList.remove('playing'); signal.classList.add('hidden'); }
-        },
-        playBGM: () => {
-            if (!state.preferences.bgmEnabled || !state.preferences.musicEnabled) return;
-            if (serenity.audio.bgmOscs.length > 0) return;
-            
-            // Soft Background Ambient (BGM)
-            const bgFreqs = [146.83, 220.00]; 
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!serenity.audio.ctx) serenity.audio.ctx = new AudioContext();
-            
-            // Re-creating local gain for BGM to avoid dependency issues
-            const g = serenity.audio.ctx.createGain();
-            g.connect(serenity.audio.ctx.destination);
-            g.gain.setValueAtTime(0, serenity.audio.ctx.currentTime);
-            
-            serenity.audio.bgmOscs = bgFreqs.map(f => {
-                const osc = serenity.audio.ctx.createOscillator();
-                osc.type = 'sine';
-                osc.frequency.value = f;
-                osc.connect(g);
-                osc.start();
-                return osc;
-            });
-            g.gain.linearRampToValueAtTime(0.08, serenity.audio.ctx.currentTime + 5);
-            serenity.audio.bgmGainRef = g;
-        },
-        stopBGM: () => {
-            if (!serenity.audio.bgmGainRef) return;
-            serenity.audio.bgmGainRef.gain.linearRampToValueAtTime(0, serenity.audio.ctx.currentTime + 2);
-            setTimeout(() => {
-                serenity.audio.bgmOscs.forEach(o => o.stop());
-                serenity.audio.bgmOscs = [];
-            }, 2100);
-        },
         playSFX: (type) => {
-            if (!state.preferences.sfxEnabled || !state.preferences.musicEnabled) return;
+            if (!state.preferences.sfxEnabled) return;
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!serenity.audio.ctx) serenity.audio.ctx = new AudioContext();
             if (serenity.audio.ctx.state === 'suspended') serenity.audio.ctx.resume();
@@ -915,42 +758,13 @@ window.serenity = {
                 osc.stop(serenity.audio.ctx.currentTime + 0.5);
             }
         },
-        showUnlockOverlay: () => {
-            const overlay = document.createElement('div');
-            overlay.id = 'yt-unlock-overlay';
-            overlay.innerHTML = `
-                <div class="glass-card" style="padding: 2.5rem; text-align: center; max-width: 400px;">
-                    <i data-lucide="music" style="width: 48px; height: 48px; color: var(--accent-lavender); margin-bottom: 1.5rem;"></i>
-                    <h2 style="margin-bottom: 1rem;">Unlock Audio</h2>
-                    <p style="margin-bottom: 2rem; font-size: 0.9rem; opacity: 0.8;">To enable high-quality YouTube music, one initial click is required to authorize the browser.</p>
-                    <button class="btn-primary" style="width: 100%;" id="btn-unlock-audio">Enable Experience</button>
-                </div>
-            `;
-            overlay.style = "position:fixed; inset:0; background:rgba(255,255,255,0.8); backdrop-filter:blur(10px); z-index:9999; display:flex; align-items:center; justify-content:center;";
-            document.body.appendChild(overlay);
-            if (window.lucide) lucide.createIcons();
-            
-            document.getElementById('btn-unlock-audio').onclick = () => {
-                serenity.audio.init();
-                if (serenity.audio.player) {
-                    serenity.audio.player.mute();
-                    serenity.audio.player.playVideo();
-                    setTimeout(() => {
-                        serenity.audio.player.stopVideo();
-                        serenity.audio.player.unMute();
-                    }, 500);
-                }
-                overlay.remove();
-                state.update({ preferences: { ...state.preferences, youtubeActive: true } });
-            };
-        }
-    }
-};
-
-// YouTube API Callback
-window.onYouTubeIframeAPIReady = () => {
-    if (window.serenity && window.serenity.audio) {
-        serenity.audio.init();
+        // Fallbacks so existing calls don't crash the UI when navigating
+        play: () => {},
+        stop: () => {},
+        playBGM: () => {},
+        stopBGM: () => {},
+        init: () => {},
+        showUnlockOverlay: () => {}
     }
 };
 
