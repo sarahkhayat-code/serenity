@@ -1,4 +1,108 @@
 /**
+ * modules/state.js
+ * Application State Management
+ */
+
+export function initState() {
+    // Reactive State Object
+    const state = {
+        user: null,
+        currentView: 'dashboard',
+        moodHistory: [],
+        preferences: {
+            learningStyle: 'visual', // visual, auditory, kinesthetic, writing
+            goals: []
+        },
+        
+        // Listeners for state changes
+        listeners: [],
+        
+        subscribe(callback) {
+            this.listeners.push(callback);
+        },
+        
+        update(newData) {
+            Object.assign(this, newData);
+            this.listeners.forEach(cb => cb(this));
+        }
+    };
+
+    // Load from LocalStorage if available (persistence)
+    const localData = localStorage.getItem('serenity_state');
+    if (localData) {
+        try {
+            const parsed = JSON.parse(localData);
+            state.update(parsed);
+        } catch (e) {
+            console.error('Failed to load local state:', e);
+        }
+    }
+
+    // Persist on update
+    state.subscribe((latest) => {
+        const { user, preferences, moodHistory } = latest;
+        localStorage.setItem('serenity_state', JSON.stringify({ user, preferences, moodHistory }));
+    });
+
+    return state;
+}
+/**
+ * modules/auth.js
+ * Authentication Module (Mock + Firebase Ready)
+ */
+
+export async function initAuth(state, isMock = true) {
+    if (isMock) {
+        console.log('Auth: Initializing in MOCK mode.');
+        return initMockAuth(state);
+    } else {
+        // Here we would initialize real Firebase Auth
+        // import { getAuth } from "https://www.gstatic.com/firebasejs/10.x/firebase-auth.js";
+        console.log('Auth: Real Firebase integration required.');
+    }
+}
+
+function initMockAuth(state) {
+    const auth = {
+        currentUser: null,
+        
+        async signUp(email, name, password) {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const user = { uid: 'mock_' + Date.now(), email, displayName: name };
+                    this.currentUser = user;
+                    state.update({ user });
+                    resolve(user);
+                }, 800);
+            });
+        },
+        
+        async login(email, password) {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const user = { uid: 'mock_123', email, displayName: 'Sarah' };
+                    this.currentUser = user;
+                    state.update({ user });
+                    resolve(user);
+                }, 800);
+            });
+        },
+        
+        async logout() {
+            this.currentUser = null;
+            state.update({ user: null });
+            localStorage.removeItem('serenity_state');
+        }
+    };
+
+    // Auto-login if user exists in state (from LocalStorage)
+    if (state.user) {
+        auth.currentUser = state.user;
+    }
+
+    return auth;
+}
+/**
  * modules/ui.js
  * DOM Manipulation and Component Rendering
  */
@@ -336,3 +440,128 @@ function initDashboardCharts(state) {
         }
     });
 }
+/**
+ * modules/exercises.js
+ * Logic for Emotion Regulation Modules
+ */
+
+export function initExercises(state) {
+    // This will be called when the Exercise View is loaded
+}
+
+/**
+ * Breathing Exercise Controller
+ */
+export function startBreathing(container, settings = { voice: true }) {
+    let isActive = true;
+    let phase = 'Inhale'; // Inhale, Hold, Exhale
+    const phases = {
+        'Inhale': { duration: 4000, color: 'var(--accent-emerald)', next: 'Hold' },
+        'Hold': { duration: 2000, color: 'var(--accent-blue)', next: 'Exhale' },
+        'Exhale': { duration: 4000, color: 'var(--accent-emerald)', next: 'Inhale' }
+    };
+
+    container.innerHTML = `
+        <div class="breathing-session">
+            <h2 id="breath-phase">${phase}</h2>
+            <div class="breathing-circle">
+                <span id="breath-timer">4</span>
+            </div>
+            <button id="stop-breathing" class="btn-secondary">Stop Session</button>
+        </div>
+    `;
+
+    const phaseEl = document.getElementById('breath-phase');
+    const timerEl = document.getElementById('breath-timer');
+    const stopBtn = document.getElementById('stop-breathing');
+
+    stopBtn.onclick = () => {
+        isActive = false;
+        container.innerHTML = '<p>Session complete. How do you feel?</p>';
+    };
+
+    async function runCycle() {
+        if (!isActive) return;
+
+        const current = phases[phase];
+        phaseEl.textContent = phase;
+        phaseEl.style.color = current.color;
+
+        if (settings.voice) {
+            speak(phase);
+        }
+
+        // Countdown
+        let remaining = current.duration / 1000;
+        while (remaining > 0 && isActive) {
+            timerEl.textContent = remaining;
+            await sleep(1000);
+            remaining--;
+        }
+
+        if (isActive) {
+            phase = current.next;
+            runCycle();
+        }
+    }
+
+    runCycle();
+}
+
+/**
+ * Speech Synthesis Helper
+ */
+function speak(text) {
+    if (!window.speechSynthesis) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.8;
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+/**
+ * Serenity - Emotion Regulation Training App
+ * Main Entry Point
+ */
+
+import { initUI, updateRoute } from './modules/ui.js';
+import { initAuth } from './modules/auth.js';
+import { initState } from './modules/state.js';
+
+// Configuration
+const CONFIG = {
+    MOCK_MODE: true, // Use mock data until Firebase config is provided
+    VERSION: '1.0.0'
+};
+
+/**
+ * Initialize Application
+ */
+async function initApp() {
+    console.log('Serenity Initializing...');
+    
+    // Initialize State Management
+    const state = initState();
+    
+    // Initialize UI
+    initUI(state);
+    
+    // Initialize Authentication
+    const auth = await initAuth(state, CONFIG.MOCK_MODE);
+    
+    // Handle Navigation
+    window.addEventListener('popstate', () => {
+        updateRoute(state);
+    });
+
+    // Initial Route
+    updateRoute(state);
+    
+    console.log('Serenity Ready.');
+}
+
+// Start
+document.addEventListener('DOMContentLoaded', initApp);

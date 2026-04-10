@@ -60,10 +60,12 @@
     </div>
 
     <!-- Scripts -->
-    <script type="module" src="app.js"></script>
+    <script src="app.js"></script>
     <script>
         // Initialize icons
-        lucide.createIcons();
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     </script>
 </body>
 </html>

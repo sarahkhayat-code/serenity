@@ -1,12 +1,15 @@
 :root {
-    --bg-main: #f8fafc;
+    --bg-main: #f0f9ff; /* Soft Blue */
     --text-primary: #1e293b;
     --text-secondary: #64748b;
-    --accent-emerald: #10b981;
-    --accent-blue: #3b82f6;
-    --accent-soft-emerald: #ecfdf5;
+    --accent-coral: #fb7185; /* Coral */
+    --accent-mint: #34d399; /* Mint Green */
+    --accent-soft-mint: #d1fae5;
+    --accent-lavender: #a855f7; /* Lavender */
+    --accent-soft-lavender: #f3e8ff;
+    --bg-secondary: #fafaf9; /* Light Beige */
     --white: #ffffff;
-    --glass-nav: rgba(255, 255, 255, 0.8);
+    --glass-nav: rgba(240, 249, 255, 0.8);
     --border-soft: #e2e8f0;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -55,7 +58,7 @@ body {
     gap: 0.75rem;
     font-weight: 700;
     font-size: 1.25rem;
-    color: var(--accent-emerald);
+    color: var(--accent-lavender);
 }
 
 .logo-icon {
@@ -82,7 +85,7 @@ body {
 }
 
 .nav-item.active {
-    color: var(--accent-emerald);
+    color: var(--accent-coral);
     position: relative;
 }
 
@@ -93,19 +96,19 @@ body {
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--accent-emerald);
+    background: var(--accent-coral);
     border-radius: 2px;
 }
 
 .circle-btn {
     width: 36px;
     height: 36px;
-    background: var(--accent-soft-emerald) !important;
+    background: var(--accent-soft-lavender) !important;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--accent-emerald) !important;
+    color: var(--accent-lavender) !important;
 }
 
 /* Main Content Area */
@@ -141,21 +144,21 @@ main {
     right: 2rem;
     width: 56px;
     height: 56px;
-    background: var(--accent-emerald);
+    background: var(--accent-coral);
     color: white;
     border: none;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.39);
+    box-shadow: 0 4px 14px rgba(251, 113, 133, 0.39);
     cursor: pointer;
     transition: var(--transition-base);
 }
 
 .fab:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    box-shadow: 0 6px 20px rgba(251, 113, 133, 0.45);
 }
 
 /* Loading Screen */
@@ -171,8 +174,8 @@ main {
 .spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid var(--accent-soft-emerald);
-    border-top-color: var(--accent-emerald);
+    border: 3px solid var(--accent-soft-mint);
+    border-top-color: var(--accent-mint);
     border-radius: 50%;
     animation: spin 1s infinite linear;
     margin-bottom: 1rem;
@@ -232,16 +235,16 @@ main {
 .breathing-circle {
     width: 200px;
     height: 200px;
-    background: var(--accent-soft-emerald);
+    background: var(--accent-soft-mint);
     border-radius: 50%;
     margin: 2rem auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--accent-emerald);
+    color: var(--accent-mint);
     font-weight: 600;
     animation: breathe 12s infinite ease-in-out;
-    border: 4px solid var(--accent-emerald);
+    border: 4px solid var(--accent-mint);
 }
 
 @keyframes breathe {
@@ -253,7 +256,7 @@ main {
 
 /* Buttons and Inputs */
 .btn-primary {
-    background: var(--accent-emerald);
+    background: var(--accent-coral);
     color: white;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -323,8 +326,8 @@ textarea:focus {
 }
 
 .mood-btn.selected {
-    background: var(--accent-soft-emerald);
-    border-color: var(--accent-emerald);
+    background: var(--accent-soft-mint);
+    border-color: var(--accent-mint);
 }
 
 /* Journal Entries */
@@ -357,7 +360,7 @@ textarea:focus {
 .radio-label input {
     width: 20px;
     height: 20px;
-    accent-color: var(--accent-emerald);
+    accent-color: var(--accent-coral);
 }
 
 /* Achievements / Badges */
@@ -385,8 +388,8 @@ textarea:focus {
 .badge.earned {
     filter: grayscale(0);
     opacity: 1;
-    background: var(--accent-soft-emerald);
-    border-color: var(--accent-emerald);
+    background: var(--accent-soft-mint);
+    border-color: var(--accent-mint);
     transform: scale(1.1);
 }
 
