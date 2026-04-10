@@ -11,8 +11,14 @@ function initState() {
         moodHistory: [{ mood: 'calm', note: 'First step into Serenity.', timestamp: Date.now() }],
         bookmarks: [],
         hasCompletedOnboarding: false,
+        vitals: { bpm: 0, status: 'disconnected', isMocking: false },
         preferences: {
             learningStyle: 'visual',
+            musicEnabled: true,
+            bgmEnabled: true,
+            sfxEnabled: true,
+            musicTrack: 'auto',
+            youtubeActive: true,
             goals: []
         },
         listeners: [],
@@ -26,12 +32,16 @@ function initState() {
     if (localData) {
         try {
             const parsed = JSON.parse(localData);
+            // Force onboarding if learning style hasn't been properly set in previous versions
+            if (parsed.hasCompletedOnboarding && (!parsed.preferences || !parsed.preferences.learningStyle)) {
+                parsed.hasCompletedOnboarding = false;
+            }
             state.update(parsed);
         } catch (e) { console.error('Failed to load local state:', e); }
     }
     state.subscribe((latest) => {
-        const { user, preferences, moodHistory, bookmarks, hasCompletedOnboarding } = latest;
-        localStorage.setItem('serenity_state', JSON.stringify({ user, preferences, moodHistory, bookmarks, hasCompletedOnboarding }));
+        const { user, preferences, moodHistory, bookmarks, hasCompletedOnboarding, vitals } = latest;
+        localStorage.setItem('serenity_state', JSON.stringify({ user, preferences, moodHistory, bookmarks, hasCompletedOnboarding, vitals }));
     });
     return state;
 }
@@ -81,7 +91,11 @@ function startBreathing(container, settings = { voice: true }) {
     };
 
     container.innerHTML = `
-        <div class="breathing-session" style="text-align: center; padding-top: 3rem;">
+        <div class="breathing-session" style="text-align: center; padding-top: 3rem; position: relative;">
+            ${getVitalsOverlayComponent(state)}
+            <div id="manual-audio-play" class="hidden" style="position: absolute; top: 1rem; left: 1rem; z-index: 100;">
+                <button class="btn-secondary" style="font-size: 0.7rem; padding: 0.4rem 0.8rem;" onclick="window.serenity.audio.play(); this.parentElement.remove();">🔊 Enable Music</button>
+            </div>
             <h2 id="breath-phase" style="font-size: 2.5rem; margin-bottom: 2rem;">${phase}</h2>
             <div class="breathing-circle">
                 <span id="breath-timer" style="font-size: 2rem; font-weight: bold;">4</span>
@@ -93,7 +107,12 @@ function startBreathing(container, settings = { voice: true }) {
     const phaseEl = document.getElementById('breath-phase');
     const timerEl = document.getElementById('breath-timer');
     const stopBtn = document.getElementById('stop-breathing');
-    stopBtn.onclick = () => { isActive = false; window.serenity.navTo('dashboard'); };
+    stopBtn.onclick = () => { 
+        isActive = false; 
+        window.serenity.audio.stop();
+        window.serenity.navTo('dashboard'); 
+    };
+    // Audio is now triggered by the click listener in attachExerciseListeners
 
     async function runCycle() {
         if (!isActive) return;
@@ -108,13 +127,18 @@ function startBreathing(container, settings = { voice: true }) {
             remaining--;
         }
         if (isActive) { phase = current.next; runCycle(); }
+        else { window.serenity.audio.playSFX('success'); }
     }
     runCycle();
 }
 
 function startReframing(container, state) {
     container.innerHTML = `
-        <div class="reframing-session">
+        <div class="reframing-session" style="position: relative;">
+            ${getVitalsOverlayComponent(state)}
+            <div id="manual-audio-play" class="hidden" style="position: absolute; top: 1rem; left: 1rem; z-index: 100;">
+                <button class="btn-secondary" style="font-size: 0.7rem; padding: 0.4rem 0.8rem;" onclick="window.serenity.audio.play(); this.parentElement.remove();">🔊 Enable Music</button>
+            </div>
             <h2 class="section-title">Cognitive Reframing</h2>
             <p class="text-secondary">Transform negative thought patterns into balanced perspectives.</p>
             <div class="card" style="margin-top: 2rem">
@@ -126,6 +150,7 @@ function startReframing(container, state) {
                 <label>A Balanced Perspective</label>
                 <textarea id="pos-thought" placeholder="e.g., 'I struggled today, but I have succeeded before...'"></textarea>
                 <button id="save-reframe" class="btn-primary" style="margin-top: 1.5rem; width: 100%">Save Reflection</button>
+                <button class="btn-secondary" style="margin-top: 1rem; width: 100%" onclick="window.serenity.navTo('dashboard')">Cancel</button>
             </div>
         </div>
     `;
@@ -134,8 +159,11 @@ function startReframing(container, state) {
         const pos = document.getElementById('pos-thought').value;
         const entry = { type: 'reframe', neg, pos, timestamp: Date.now() };
         state.update({ moodHistory: [...(state.moodHistory || []), entry] });
+        window.serenity.audio.stop();
+        window.serenity.audio.playSFX('success');
         window.serenity.navTo('journal');
     };
+    window.serenity.audio.play();
 }
 
 function speak(text) {
@@ -154,13 +182,47 @@ function initUI(state) {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const view = item.id.replace('nav-', '');
+            window.serenity.audio.playSFX('click');
             state.update({ currentView: view === 'profile' ? 'profile' : view });
             document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
             item.classList.add('active');
         });
     });
 
-    quickLogBtn.addEventListener('click', () => showMoodModal(state));
+    // Global Mute Toggle
+    const muteBtn = document.getElementById('global-mute');
+    if (muteBtn) {
+        muteBtn.onclick = () => {
+            const enabled = !state.preferences.musicEnabled;
+            state.update({ preferences: { ...state.preferences, musicEnabled: enabled } });
+            if (window.serenity.audio) {
+                if (!enabled) {
+                    window.serenity.audio.stop();
+                    window.serenity.audio.stopBGM();
+                } else {
+                    window.serenity.audio.playBGM();
+                }
+                const icon = document.querySelector('#global-mute i');
+                if (icon) icon.setAttribute('data-lucide', enabled ? 'volume-2' : 'volume-x');
+                if (window.lucide) lucide.createIcons();
+                window.serenity.audio.playSFX('click');
+            }
+        };
+    }
+
+    // Global Audio Initialization on first click
+    document.body.addEventListener('click', () => {
+        if (window.serenity.audio) {
+            window.serenity.audio.init();
+            window.serenity.audio.playBGM();
+        }
+    }, { once: true });
+
+    quickLogBtn.addEventListener('click', () => {
+        showMoodModal(state);
+        window.serenity.audio.playSFX('click');
+        if (window.serenity.audio) window.serenity.audio.init();
+    });
     state.subscribe((latest) => renderView(latest, mainContent));
 }
 
@@ -189,17 +251,34 @@ function renderView(state, container) {
             container.innerHTML = `<p>Coming soon...</p>`;
     }
     if (window.lucide) window.lucide.createIcons();
+    
+    // Start Visualizer if in profile
+    if (view === 'profile' && window.serenity.audio) {
+        window.serenity.audio.initVisualizer();
+    }
 }
 
 function renderDashboard(state) {
     const greeting = state.user ? `Welcome back, ${state.user.displayName}` : 'Welcome to Serenity';
+    const vitals = state.vitals || { bpm: 0, status: 'disconnected' };
+    
     return `
         <div class="view-dashboard">
-            <div class="streak-chip">
-                <i data-lucide="award"></i>
-                <span>1 Day Streak!</span>
+            <div class="dashboard-header-row">
+                <div class="streak-chip">
+                    <i data-lucide="award"></i>
+                    <span>1 Day Streak!</span>
+                </div>
+                ${vitals.status === 'connected' || vitals.isMocking ? `
+                    <div class="vitals-chip ${vitals.bpm > 90 ? 'elevated' : 'calm'}">
+                        <i data-lucide="heart" class="pulse-icon"></i>
+                        <span>${vitals.bpm} BPM</span>
+                    </div>
+                ` : ''}
             </div>
+            
             <h1 class="section-title">${greeting}</h1>
+            
             <div class="grid-2">
                 <div class="card chart-card">
                     <div class="chart-header">
@@ -212,17 +291,37 @@ function renderDashboard(state) {
                     </div>
                 </div>
                 <div class="card">
-                    <h3>Achievements</h3>
+                    <h3>Your Achievements</h3>
+                    <p class="text-secondary" style="font-size: 0.85rem; margin-bottom: 1rem">Unlock badges as you practice regulation.</p>
                     <div class="badge-row">
                         <div class="badge ${state.moodHistory.length >= 1 ? 'earned' : ''}" title="Log 1">🌱</div>
                         <div class="badge ${state.moodHistory.length >= 5 ? 'earned' : ''}" title="Log 5">🌟</div>
                         <div class="badge ${state.moodHistory.length >= 10 ? 'earned' : ''}" title="Log 10">🏆</div>
                     </div>
+                    <button class="btn-secondary" style="width: 100%; margin-top: 1.5rem" onclick="window.serenity.navTo('profile')">View Milestones</button>
                 </div>
             </div>
-            <div class="card" style="margin-top: 1.5rem">
-                <h3>Ready to Train?</h3>
-                <button class="btn-primary" onclick="window.serenity.navTo('exercises')">Find an Exercise</button>
+            
+            <div class="grid-3" style="margin-top: 1.5rem">
+                <div class="card vitals-summary-card">
+                    <h3 style="font-size: 1rem">Bio-Monitoring ${vitals.isMocking ? '(Mock)' : ''}</h3>
+                    <div class="vitals-display" style="transform: scale(0.9)">
+                        <div class="bpm-large ${vitals.status === 'connected' || vitals.isMocking ? 'active' : ''}">
+                            <span class="bpm-val">${vitals.bpm || '--'}</span>
+                            <span class="bpm-unit" style="font-size: 0.7rem">BPM</span>
+                        </div>
+                    </div>
+                    ${vitals.status !== 'connected' && !vitals.isMocking ? `
+                        <button class="btn-secondary" style="width: 100%; font-size: 0.8rem" onclick="window.serenity.navTo('profile')">Connect</button>
+                    ` : ''}
+                </div>
+                <div class="card" style="grid-column: span 2">
+                    <h3>Ready to Train?</h3>
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button class="btn-primary" style="flex: 1" onclick="window.serenity.navTo('exercises')">Resilience Exercises</button>
+                        <button class="btn-secondary" style="flex: 1" onclick="window.serenity.navTo('resources')">Expert Materials</button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -255,11 +354,17 @@ function renderExercises(state) {
                     <p>Shift your mood through movement.</p>
                     <button class="start-btn btn-primary">Start</button>
                 </div>` : ''}
-                <div class="card exercise-card" data-id="reframing">
+                <div class="card exercise-card" data-id="reframing" style="position: relative;">
                     <div class="icon-box"><i data-lucide="message-square"></i></div>
                     <h3>Cognitive Reframe</h3>
                     <p>Identify negative thought patterns.</p>
-                    <button class="start-btn btn-primary">Start</button>
+                    <button class="start-btn btn-primary" onclick="window.serenity.audio.play()">Start</button>
+                    <!-- Audio Signal Indicator -->
+                    <div id="audio-signal" class="hidden" style="position: absolute; bottom: 1rem; right: 1rem; display: flex; gap: 2px; align-items: flex-end; height: 12px;">
+                        <div class="signal-bar" style="width: 3px; background: var(--accent-mint); animation: signal 0.5s infinite alternate;"></div>
+                        <div class="signal-bar" style="width: 3px; background: var(--accent-mint); animation: signal 0.8s infinite alternate-reverse;"></div>
+                        <div class="signal-bar" style="width: 3px; background: var(--accent-mint); animation: signal 0.6s infinite alternate;"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -341,23 +446,90 @@ function attachResourceListeners(state) {
 
 function renderProfile(state) {
     const style = state.preferences.learningStyle;
+    const vitals = state.vitals || { status: 'disconnected', isMocking: false };
+    
     return `
         <div class="view-profile">
             <h1 class="section-title">Your Profile</h1>
-            <div class="card">
-                <h3>Learning Preferences</h3>
-                <div class="preference-options" style="margin-top: 1.5rem">
-                    <label class="radio-label">
-                        <input type="radio" name="learningStyle" value="visual" ${style === 'visual' ? 'checked' : ''} onchange="window.serenity.setPref('visual')">
-                        <span style="margin-left: 0.5rem">Visual</span>
-                    </label><br><br>
-                    <label class="radio-label">
-                        <input type="radio" name="learningStyle" value="auditory" ${style === 'auditory' ? 'checked' : ''} onchange="window.serenity.setPref('auditory')">
-                        <span style="margin-left: 0.5rem">Auditory (Voice)</span>
-                    </label>
+            
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Learning Preference</h3>
+                    <div class="preference-options" style="margin-top: 1.5rem">
+                        <label class="radio-label">
+                            <input type="radio" name="learningStyle" value="visual" ${style === 'visual' ? 'checked' : ''} onchange="window.serenity.setPref('visual')">
+                            <span style="margin-left: 0.5rem">Visual</span>
+                        </label><br><br>
+                        <label class="radio-label">
+                            <input type="radio" name="learningStyle" value="auditory" ${style === 'auditory' ? 'checked' : ''} onchange="window.serenity.setPref('auditory')">
+                            <span style="margin-left: 0.5rem">Auditory (Voice)</span>
+                        </label>
+                    </div>
+
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-soft)">
+                        <label class="switch-row" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="window.serenity.toggleMusic()">
+                            <span>Ambient Music during Exercises</span>
+                            <div class="toggle-track ${state.preferences.musicEnabled ? 'active' : ''}">
+                                <div class="toggle-knob"></div>
+                            </div>
+                        </label>
+                        
+                        <div style="margin-top: 1rem;">
+                            <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.5rem">Select Soundtrack</label>
+                            <select class="input-select" style="width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-soft); background: var(--bg-white);" onchange="window.serenity.audio.setTrack(this.value)">
+                                <option value="auto" ${state.preferences.musicTrack === 'auto' ? 'selected' : ''}>Default (Exercise-Specific)</option>
+                                <option value="drone" ${state.preferences.musicTrack === 'drone' ? 'selected' : ''}>Binaural Focus (Synth)</option>
+                                <option value="bach" ${state.preferences.musicTrack === 'bach' ? 'selected' : ''}>Classical Bach (Relaxation)</option>
+                                <option value="nature" ${state.preferences.musicTrack === 'nature' ? 'selected' : ''}>Nature Rain (Grounding)</option>
+                            </select>
+                        </div>
+
+                        <button class="btn-secondary" style="width: 100%; margin-top: 1rem; font-size: 0.8rem" onclick="window.serenity.audio.play(); setTimeout(() => window.serenity.audio.stop(), 5000)">
+                            Test Sound (5s)
+                        </button>
+                        
+                        <div id="audio-status-box" style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.03); border-radius: 10px; font-size: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span>Engine Status:</span>
+                                <span id="audio-engine-state" style="font-weight: 700; color: var(--accent-lavender);">Ready</span>
+                            </div>
+                            
+                            <!-- Audio Monitor (Canvas) -->
+                            <div style="background: #000; height: 30px; border-radius: 4px; overflow: hidden; position: relative;">
+                                <canvas id="audio-visualizer" style="width: 100%; height: 100%;"></canvas>
+                                <span style="position: absolute; top: 2px; right: 4px; font-size: 0.5rem; color: #666;">Audio Signal Monitor</span>
+                            </div>
+
+                            <button class="btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 0.4rem; font-size: 0.7rem;" onclick="window.serenity.audio.repair()">Repair & Test Audio</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Wearable Integration</h3>
+                    <p class="text-secondary" style="font-size: 0.85rem; margin-bottom: 1.5rem">Connect a Bluetooth heart rate monitor to enable biofeedback.</p>
+                    <div class="wearable-controls">
+                        <div class="status-indicator">
+                            <span class="status-dot ${vitals.status}"></span>
+                            <span>Status: ${vitals.status}</span>
+                        </div>
+                        <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="window.serenity.connectBluetooth()">
+                            ${vitals.status === 'connected' ? 'Connected' : 'Connect Device'}
+                        </button>
+                        
+                        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-soft)">
+                            <label class="switch-row" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="window.serenity.toggleMockVitals()">
+                                <span>Virtual Biofeedback (Mock)</span>
+                                <div class="toggle-track ${vitals.isMocking ? 'active' : ''}">
+                                    <div class="toggle-knob"></div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <button class="btn-primary" style="background: #ef4444; margin-top: 2rem" onclick="localStorage.clear(); location.reload();">Reset App</button>
+
+            <button class="btn-primary" style="background: #ef4444; margin: 3rem auto 0; display: block;" onclick="localStorage.clear(); location.reload();">Reset All Data</button>
         </div>
     `;
 }
@@ -367,6 +539,17 @@ function attachExerciseListeners(state) {
         card.querySelector('.start-btn').onclick = () => {
             const id = card.dataset.id;
             const container = document.getElementById('main-content');
+            
+            // CRITICAL: Play music directly in this user interaction stack
+            if (state.preferences.musicEnabled) {
+                if (!state.preferences.youtubeActive) {
+                    window.serenity.audio.showUnlockOverlay();
+                    return;
+                }
+                window.serenity.audio.play(id);
+                window.serenity.audio.playSFX('click');
+            }
+
             if (id === 'breathing') startBreathing(container, { voice: state.preferences.learningStyle === 'auditory' });
             else if (id === 'reframing') startReframing(container, state);
             else if (id === 'centering') startCentering(container, state);
@@ -446,8 +629,10 @@ function startReflection(container, state) {
         const note = document.getElementById('reflection-text').value;
         const entry = { mood: 'calm', note: `Reflection: ${note}`, timestamp: Date.now() };
         state.update({ moodHistory: [...(state.moodHistory || []), entry] });
+        window.serenity.audio.stop();
         window.serenity.navTo('journal');
     };
+    window.serenity.audio.play();
 }
 
 function getMoodEmoji(mood) {
@@ -552,9 +737,188 @@ window.serenity = {
     navTo: (view) => {
         const btn = document.getElementById(`nav-${view}`);
         if (btn) btn.click();
+        // Initialize audio on any navigation click to unlock audio context
+        if (window.serenity.audio) window.serenity.audio.init();
     },
     setPref: (style) => {
         state.update({ preferences: { ...state.preferences, learningStyle: style } });
+    },
+    toggleMusic: () => {
+        const enabled = !state.preferences.musicEnabled;
+        state.update({ preferences: { ...state.preferences, musicEnabled: enabled } });
+        if (!enabled) serenity.audio.stop();
+    },
+    audio: {
+        player: null,
+        apiReady: false,
+        cueQueue: null,
+        playlists: {
+            bach: 'PLcGkkXtask_degi8Ebeh7QuVqugv6GJPX',
+            nature: 'PLuexPWX3qirhivHzsJRYK4i503oEZylZ7',
+            focus: 'PLmc810SEMNsCAUZ7oRGNTlEnS-CX-xt_e'
+        },
+        init: () => {
+            if (window.YT && window.YT.Player && !serenity.audio.player) {
+                serenity.audio.player = new YT.Player('yt-player', {
+                    height: '0',
+                    width: '0',
+                    playerVars: {
+                        'autoplay': 0,
+                        'controls': 0,
+                        'disablekb': 1,
+                        'fs': 0,
+                        'rel': 0,
+                        'showinfo': 0,
+                        'modestbranding': 1
+                    },
+                    events: {
+                        'onReady': (e) => {
+                            serenity.audio.apiReady = true;
+                            if (serenity.audio.cueQueue) {
+                                serenity.audio.play(serenity.audio.cueQueue);
+                                serenity.audio.cueQueue = null;
+                            }
+                        }
+                    }
+                });
+            }
+        },
+        play: (exerciseType = null) => {
+            if (!state.preferences.musicEnabled) return;
+            serenity.audio.init();
+            
+            if (!serenity.audio.apiReady) {
+                serenity.audio.cueQueue = exerciseType;
+                return;
+            }
+
+            let trackKey = state.preferences.musicTrack;
+            if (trackKey === 'auto') {
+                if (exerciseType === 'breathing') trackKey = 'bach';
+                else if (exerciseType === 'centering') trackKey = 'nature';
+                else trackKey = 'focus';
+            }
+
+            const playlistId = serenity.audio.playlists[trackKey] || serenity.audio.playlists.bach;
+            
+            serenity.audio.player.loadPlaylist({
+                list: playlistId,
+                listType: 'playlist',
+                index: 0,
+                startSeconds: 0,
+                suggestedQuality: 'small'
+            });
+            serenity.audio.player.setShuffle(true);
+            serenity.audio.player.setLoop(true);
+            serenity.audio.player.unMute();
+            serenity.audio.player.setVolume(50);
+            
+            const signal = document.getElementById('audio-signal');
+            if (signal) { signal.classList.remove('hidden'); signal.classList.add('playing'); }
+        },
+        stop: () => {
+            if (serenity.audio.player && serenity.audio.player.stopVideo) {
+                serenity.audio.player.stopVideo();
+            }
+            const signal = document.getElementById('audio-signal');
+            if (signal) { signal.classList.remove('playing'); signal.classList.add('hidden'); }
+        },
+        playBGM: () => {
+            if (!state.preferences.bgmEnabled || !state.preferences.musicEnabled) return;
+            if (serenity.audio.bgmOscs.length > 0) return;
+            
+            // Soft Background Ambient (BGM)
+            const bgFreqs = [146.83, 220.00]; 
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!serenity.audio.ctx) serenity.audio.ctx = new AudioContext();
+            
+            // Re-creating local gain for BGM to avoid dependency issues
+            const g = serenity.audio.ctx.createGain();
+            g.connect(serenity.audio.ctx.destination);
+            g.gain.setValueAtTime(0, serenity.audio.ctx.currentTime);
+            
+            serenity.audio.bgmOscs = bgFreqs.map(f => {
+                const osc = serenity.audio.ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = f;
+                osc.connect(g);
+                osc.start();
+                return osc;
+            });
+            g.gain.linearRampToValueAtTime(0.08, serenity.audio.ctx.currentTime + 5);
+            serenity.audio.bgmGainRef = g;
+        },
+        stopBGM: () => {
+            if (!serenity.audio.bgmGainRef) return;
+            serenity.audio.bgmGainRef.gain.linearRampToValueAtTime(0, serenity.audio.ctx.currentTime + 2);
+            setTimeout(() => {
+                serenity.audio.bgmOscs.forEach(o => o.stop());
+                serenity.audio.bgmOscs = [];
+            }, 2100);
+        },
+        playSFX: (type) => {
+            if (!state.preferences.sfxEnabled || !state.preferences.musicEnabled) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!serenity.audio.ctx) serenity.audio.ctx = new AudioContext();
+            if (serenity.audio.ctx.state === 'suspended') serenity.audio.ctx.resume();
+            
+            const osc = serenity.audio.ctx.createOscillator();
+            const g = serenity.audio.ctx.createGain();
+            osc.connect(g);
+            g.connect(serenity.audio.ctx.destination);
+            
+            if (type === 'click') {
+                osc.frequency.setValueAtTime(800, serenity.audio.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, serenity.audio.ctx.currentTime + 0.1);
+                g.gain.setValueAtTime(0.2, serenity.audio.ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, serenity.audio.ctx.currentTime + 0.1);
+                osc.start();
+                osc.stop(serenity.audio.ctx.currentTime + 0.1);
+            } else if (type === 'success') {
+                osc.frequency.setValueAtTime(440, serenity.audio.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, serenity.audio.ctx.currentTime + 0.3);
+                g.gain.setValueAtTime(0.2, serenity.audio.ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, serenity.audio.ctx.currentTime + 0.5);
+                osc.start();
+                osc.stop(serenity.audio.ctx.currentTime + 0.5);
+            }
+        },
+        showUnlockOverlay: () => {
+            const overlay = document.createElement('div');
+            overlay.id = 'yt-unlock-overlay';
+            overlay.innerHTML = `
+                <div class="glass-card" style="padding: 2.5rem; text-align: center; max-width: 400px;">
+                    <i data-lucide="music" style="width: 48px; height: 48px; color: var(--accent-lavender); margin-bottom: 1.5rem;"></i>
+                    <h2 style="margin-bottom: 1rem;">Unlock Audio</h2>
+                    <p style="margin-bottom: 2rem; font-size: 0.9rem; opacity: 0.8;">To enable high-quality YouTube music, one initial click is required to authorize the browser.</p>
+                    <button class="btn-primary" style="width: 100%;" id="btn-unlock-audio">Enable Experience</button>
+                </div>
+            `;
+            overlay.style = "position:fixed; inset:0; background:rgba(255,255,255,0.8); backdrop-filter:blur(10px); z-index:9999; display:flex; align-items:center; justify-content:center;";
+            document.body.appendChild(overlay);
+            if (window.lucide) lucide.createIcons();
+            
+            document.getElementById('btn-unlock-audio').onclick = () => {
+                serenity.audio.init();
+                if (serenity.audio.player) {
+                    serenity.audio.player.mute();
+                    serenity.audio.player.playVideo();
+                    setTimeout(() => {
+                        serenity.audio.player.stopVideo();
+                        serenity.audio.player.unMute();
+                    }, 500);
+                }
+                overlay.remove();
+                state.update({ preferences: { ...state.preferences, youtubeActive: true } });
+            };
+        }
+    }
+};
+
+// YouTube API Callback
+window.onYouTubeIframeAPIReady = () => {
+    if (window.serenity && window.serenity.audio) {
+        serenity.audio.init();
     }
 };
 
@@ -573,67 +937,109 @@ function showOnboarding(state) {
     const main = document.getElementById('main-content');
     main.innerHTML = `
         <div id="onboarding-overlay">
-            <div class="onboarding-card card" id="onboarding-step-1">
+            <div class="onboarding-card card">
                 <h1>Welcome to Serenity</h1>
-                <p class="text-secondary">Your path to emotional resilience starts here. Let's personalize your experience.</p>
-                <div style="margin-top: 2rem">
-                    <label>What should we call you?</label>
-                    <input type="text" id="ob-name" placeholder="Enter your name" style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; border: 1px solid var(--border-soft); border-radius: 12px;">
+                <p class="text-secondary" style="margin-bottom: 2rem">Let's personalize your path to resilience.</p>
+                
+                <div style="text-align: left; margin-bottom: 2rem">
+                    <label style="font-weight: 600; display: block; margin-bottom: 0.5rem">What should we call you?</label>
+                    <input type="text" id="ob-name" placeholder="Your Name" style="width: 100%; padding: 0.8rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--bg-white);">
                 </div>
-                <button class="btn-primary" style="margin-top: 2rem; width: 100%" onclick="window.serenity.obNext(1)">Next</button>
+
+                <div style="text-align: left;">
+                    <label style="font-weight: 600; display: block; margin-bottom: 1rem">How do you learn best?</label>
+                    <div class="style-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <button class="style-btn card ob-style-opt" data-style="visual" onclick="window.serenity.selectObStyle(this)">
+                            <div style="font-size: 1.5rem">👁️</div>
+                            <div style="font-weight: 600; font-size: 0.9rem">Visual</div>
+                        </button>
+                        <button class="style-btn card ob-style-opt" data-style="auditory" onclick="window.serenity.selectObStyle(this)">
+                            <div style="font-size: 1.5rem">🎧</div>
+                            <div style="font-weight: 600; font-size: 0.9rem">Auditory</div>
+                        </button>
+                        <button class="style-btn card ob-style-opt" data-style="kinesthetic" onclick="window.serenity.selectObStyle(this)">
+                            <div style="font-size: 1.5rem">🖐️</div>
+                            <div style="font-weight: 600; font-size: 0.9rem">Kinesthetic</div>
+                        </button>
+                        <button class="style-btn card ob-style-opt" data-style="writing" onclick="window.serenity.selectObStyle(this)">
+                            <div style="font-size: 1.5rem">✍️</div>
+                            <div style="font-weight: 600; font-size: 0.9rem">Writing</div>
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn-primary" style="margin-top: 2rem; width: 100%" onclick="window.serenity.obNext(1)">Get Started</button>
             </div>
         </div>
     `;
 }
 
+window.serenity.selectObStyle = (el) => {
+    document.querySelectorAll('.ob-style-opt').forEach(btn => btn.classList.remove('selected-style'));
+    el.classList.add('selected-style');
+    const style = el.dataset.style;
+    state.update({ preferences: { ...state.preferences, learningStyle: style } });
+};
+
 window.serenity.obNext = (currentStep) => {
     const overlay = document.getElementById('onboarding-overlay');
+    
     if (currentStep === 1) {
         const name = document.getElementById('ob-name').value || 'Friend';
         state.update({ user: { displayName: name } });
+        
         overlay.innerHTML = `
-            <div class="onboarding-card card" id="onboarding-step-2">
-                <h1>What are your goals?</h1>
-                <p class="text-secondary">Select what you'd like to work on.</p>
-                <div class="goal-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem">
-                    <button class="goal-btn card" onclick="this.classList.toggle('selected')">Reduce Stress</button>
-                    <button class="goal-btn card" onclick="this.classList.toggle('selected')">Better Sleep</button>
-                    <button class="goal-btn card" onclick="this.classList.toggle('selected')">Daily Focus</button>
-                    <button class="goal-btn card" onclick="this.classList.toggle('selected')">Resilience</button>
+            <div class="onboarding-card card">
+                <h1>Step 2: Current Mood</h1>
+                <p class="text-secondary" style="margin-bottom: 2rem">How are you feeling in this moment?</p>
+                
+                <div class="mood-selector" style="margin-bottom: 2rem">
+                    <button class="mood-btn ob-mood-opt" data-mood="happy" onclick="window.serenity.selectObMood(this)">😊<span>Happy</span></button>
+                    <button class="mood-btn ob-mood-opt" data-mood="calm" onclick="window.serenity.selectObMood(this)">😌<span>Calm</span></button>
+                    <button class="mood-btn ob-mood-opt" data-mood="anxious" onclick="window.serenity.selectObMood(this)">😟<span>Anxious</span></button>
+                    <button class="mood-btn ob-mood-opt" data-mood="sad" onclick="window.serenity.selectObMood(this)">😢<span>Sad</span></button>
+                    <button class="mood-btn ob-mood-opt" data-mood="angry" onclick="window.serenity.selectObMood(this)">😡<span>Angry</span></button>
                 </div>
-                <button class="btn-primary" style="margin-top: 2rem; width: 100%" onclick="window.serenity.obNext(2)">Next</button>
-            </div>
-        `;
-    } else if (currentStep === 2) {
-        overlay.innerHTML = `
-            <div class="onboarding-card card" id="onboarding-step-3">
-                <h1>How do you learn best?</h1>
-                <p class="text-secondary">We will tailor your exercises to this style.</p>
-                <div class="style-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem">
-                    <button class="style-btn card" onclick="window.serenity.setObStyle('visual')">
-                        <div style="font-size: 2rem">👁️</div>
-                        <div style="font-weight: 600">Visual</div>
-                        <div style="font-size: 0.75rem" class="text-secondary">Graphics & Colors</div>
-                    </button>
-                    <button class="style-btn card" onclick="window.serenity.setObStyle('auditory')">
-                        <div style="font-size: 2rem">🎧</div>
-                        <div style="font-weight: 600">Auditory</div>
-                        <div style="font-size: 0.75rem" class="text-secondary">Voice & Music</div>
-                    </button>
-                    <button class="style-btn card" onclick="window.serenity.setObStyle('kinesthetic')">
-                        <div style="font-size: 2rem">🖐️</div>
-                        <div style="font-weight: 600">Kinesthetic</div>
-                        <div style="font-size: 0.75rem" class="text-secondary">Hands-on Tasks</div>
-                    </button>
-                    <button class="style-btn card" onclick="window.serenity.setObStyle('writing')">
-                        <div style="font-size: 2rem">✍️</div>
-                        <div style="font-weight: 600">Writing</div>
-                        <div style="font-size: 0.75rem" class="text-secondary">Journaling</div>
-                    </button>
+
+                <div style="text-align: left; margin-bottom: 2rem">
+                    <label style="font-weight: 600; display: block; margin-bottom: 1rem">Intensity (1-10)</label>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <input type="range" id="ob-intensity" min="1" max="10" value="5" style="flex: 1; accent-color: var(--accent-coral);" oninput="document.getElementById('intensity-val').textContent = this.value">
+                        <span id="intensity-val" style="font-weight: 700; font-size: 1.2rem; min-width: 1.5rem">5</span>
+                    </div>
+                </div>
+
+                <div style="text-align: left; margin-bottom: 2rem">
+                    <label style="font-weight: 600; display: block; margin-bottom: 0.5rem">What's contributing to this feeling?</label>
+                    <textarea id="ob-mood-note" placeholder="Write a few thoughts..." style="margin-top: 0; min-height: 100px;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn-secondary" style="flex: 1" onclick="showOnboarding(state)">Back</button>
+                    <button class="btn-primary" style="flex: 2" onclick="window.serenity.finishOnboarding()">Complete Check-in</button>
                 </div>
             </div>
         `;
     }
+};
+
+window.serenity.selectObMood = (el) => {
+    document.querySelectorAll('.ob-mood-opt').forEach(btn => btn.classList.remove('selected'));
+    el.classList.add('selected');
+};
+
+window.serenity.finishOnboarding = () => {
+    const mood = document.querySelector('.ob-mood-opt.selected')?.dataset.mood || 'calm';
+    const intensity = document.getElementById('ob-intensity').value;
+    const note = document.getElementById('ob-mood-note').value;
+    
+    const entry = { mood, note: `Initial Check-in: ${note}`, intensity, timestamp: Date.now() };
+    
+    state.update({ 
+        moodHistory: [...(state.moodHistory || []), entry],
+        hasCompletedOnboarding: true,
+        currentView: 'dashboard'
+    });
 };
 
 window.serenity.setObStyle = (style) => {
@@ -643,3 +1049,82 @@ window.serenity.setObStyle = (style) => {
         currentView: 'dashboard' 
     });
 };
+
+// --- BIOFEEDBACK & BLUETOOTH ---
+window.serenity.connectBluetooth = async () => {
+    try {
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: ['heart_rate'] }]
+        });
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('heart_rate');
+        const characteristic = await service.getCharacteristic('heart_rate_measurement');
+
+        state.update({ vitals: { ...state.vitals, status: 'connected', bpm: 0 } });
+
+        await characteristic.startNotifications();
+        characteristic.addEventListener('characteristicvaluechanged', (event) => {
+            const value = event.target.value;
+            let flags = value.getUint8(0);
+            let bpm = (flags & 0x01) ? value.getUint16(1, true) : value.getUint8(1);
+            state.update({ vitals: { ...state.vitals, bpm, status: 'connected' } });
+            checkVitalsPrompt(bpm);
+        });
+    } catch (err) {
+        console.error('Bluetooth Error:', err);
+        alert('Could not connect to wearable. Please ensure Bluetooth is enabled and your device is in pairing mode.');
+    }
+};
+
+window.serenity.toggleMockVitals = () => {
+    const isNowMocking = !state.vitals.isMocking;
+    state.update({ vitals: { ...state.vitals, isMocking: isNowMocking, status: isNowMocking ? 'connected' : 'disconnected' } });
+    
+    if (isNowMocking) {
+        window.serenity.mockInterval = setInterval(() => {
+            const base = 75;
+            const variance = Math.sin(Date.now() / 5000) * 15;
+            const bpm = Math.round(base + variance);
+            state.update({ vitals: { ...state.vitals, bpm } });
+            checkVitalsPrompt(bpm);
+        }, 2000);
+    } else if (window.serenity.mockInterval) {
+        clearInterval(window.serenity.mockInterval);
+    }
+};
+
+let lastPromptTime = 0;
+function checkVitalsPrompt(bpm) {
+    if (bpm > 95 && Date.now() - lastPromptTime > 60000) {
+        lastPromptTime = Date.now();
+        showVitalsPrompt();
+    }
+}
+
+function showVitalsPrompt() {
+    const toast = document.createElement('div');
+    toast.className = 'vitals-toast';
+    toast.innerHTML = `
+        <div class="toast-content">
+            <i data-lucide="activity"></i>
+            <div>
+                <strong>Stress Detected</strong>
+                <p>Your heart rate is elevated. Take 1 minute to reset?</p>
+            </div>
+        </div>
+        <button onclick="this.parentElement.remove(); window.serenity.navTo('exercises')">Start Breathing</button>
+    `;
+    document.body.appendChild(toast);
+    if (window.lucide) window.lucide.createIcons();
+    setTimeout(() => toast.remove(), 10000);
+}
+function getVitalsOverlayComponent(state) {
+    const vitals = state.vitals || { bpm: 0, status: 'disconnected', isMocking: false };
+    if (vitals.status !== 'connected' && !vitals.isMocking) return '';
+    return `
+        <div class="session-vitals-overlay vitals-chip ${vitals.bpm > 90 ? 'elevated' : 'calm'}">
+            <i data-lucide="heart" class="pulse-icon"></i>
+            <span>${vitals.bpm} BPM</span>
+        </div>
+    `;
+}

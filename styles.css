@@ -188,6 +188,40 @@ main {
     font-weight: 700;
     text-transform: uppercase;
 }
+.vitals-chip button:hover {
+    background: #6ee7b7;
+    transform: scale(1.05);
+}
+
+.session-vitals-overlay {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    z-index: 100;
+    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.6);
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* --- AUDIO SIGNAL VISUALIZER --- */
+@keyframes signal {
+    from { height: 4px; }
+    to { height: 12px; }
+}
+
+.signal-bar {
+    border-radius: 1px;
+    transition: background 0.3s;
+}
+
+#audio-signal.playing .signal-bar {
+    animation-play-state: running;
+}
+
+#audio-signal:not(.playing) .signal-bar {
+    animation-play-state: paused;
+    height: 4px !important;
+}
 
 .resource-content {
     display: flex;
@@ -579,13 +613,201 @@ textarea:focus {
     margin: 0;
 }
 
-.goal-btn.selected {
-    border-color: var(--accent-mint);
+.goal-btn.selected, .selected-style {
+    border-color: var(--accent-mint) !important;
     background: var(--accent-soft-mint) !important;
+    box-shadow: 0 0 0 2px var(--accent-mint);
 }
 
 .style-btn:hover {
     transform: translateY(-5px);
     border-color: var(--accent-lavender);
     box-shadow: var(--shadow-md);
+}
+
+/* --- BIOFEEDBACK & VITALS STYLES --- */
+.vitals-summary-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    min-height: 250px;
+}
+
+.dashboard-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.bpm-large {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+    line-height: 1;
+    margin: 1.5rem 0 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0.4;
+    transition: var(--transition-base);
+}
+
+.bpm-large.active {
+    color: var(--accent-coral);
+    animation: heartBeat 1s ease-in-out infinite;
+    opacity: 1;
+}
+
+@keyframes heartBeat {
+    0% { transform: scale(1); }
+    15% { transform: scale(1.08); }
+    30% { transform: scale(1); }
+    45% { transform: scale(1.15); }
+    60% { transform: scale(1); }
+}
+
+.bpm-unit {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0.5rem;
+}
+
+.vitals-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 1rem;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #94a3b8;
+}
+
+.status-dot.connected { 
+    background: var(--accent-mint); 
+    box-shadow: 0 0 8px var(--accent-mint); 
+}
+.status-dot.disconnected { background: #ef4444; }
+
+.vitals-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-white);
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-base);
+}
+
+.vitals-chip.elevated { 
+    color: var(--accent-coral); 
+    border: 1px solid var(--accent-coral);
+    background: #fff1f2;
+}
+
+.vitals-chip.calm { 
+    color: var(--accent-mint); 
+    border: 1px solid var(--accent-mint);
+}
+
+.pulse-icon {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.9); opacity: 1; }
+    70% { transform: scale(1.2); opacity: 0.8; }
+    100% { transform: scale(0.9); opacity: 1; }
+}
+
+/* Custom Toggle Switch */
+.toggle-track {
+    width: 44px;
+    height: 24px;
+    background: #cbd5e1;
+    border-radius: 12px;
+    position: relative;
+    transition: 0.3s;
+}
+
+.toggle-track.active {
+    background: var(--accent-mint);
+}
+
+.toggle-knob {
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: 0.3s;
+    box-shadow: var(--shadow-sm);
+}
+
+.toggle-track.active .toggle-knob {
+    left: 23px;
+}
+
+/* Vitals Toast */
+.vitals-toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    z-index: 10000;
+    width: 90%;
+    max-width: 450px;
+    animation: slideUpToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes slideUpToast {
+    from { transform: translate(-50%, 100%); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.vitals-toast .toast-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.vitals-toast button {
+    background: var(--accent-mint);
+    color: #064e3b;
+    border: none;
+    padding: 0.6rem 1rem;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition-base);
+}
+
+.vitals-toast button:hover {
+    background: #6ee7b7;
+    transform: scale(1.05);
 }
