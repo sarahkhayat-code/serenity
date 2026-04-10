@@ -643,32 +643,64 @@ function getMoodEmoji(mood) {
 function showMoodModal(state) {
     const modal = document.getElementById('modal-container');
     const content = document.getElementById('modal-content');
+    
+    const emotions = [
+        { id: 'happy', label: 'Happy', emoji: '😊', color: 'var(--accent-mint)' },
+        { id: 'calm', label: 'Calm', emoji: '😌', color: 'var(--accent-lavender)' },
+        { id: 'anxious', label: 'Anxious', emoji: '😟', color: 'var(--accent-coral)' },
+        { id: 'sad', label: 'Sad', emoji: '😢', color: '#60a5fa' },
+        { id: 'angry', label: 'Angry', emoji: '😡', color: '#ef4444' }
+    ];
+
     content.innerHTML = `
-        <h2 style="margin-bottom: 1.5rem">How are you feeling?</h2>
-        <div class="mood-selector">
-            <button class="mood-btn" data-mood="happy">😊<span>Happy</span></button>
-            <button class="mood-btn" data-mood="calm">😌<span>Calm</span></button>
-            <button class="mood-btn" data-mood="anxious">😟<span>Anxious</span></button>
-            <button class="mood-btn" data-mood="sad">😢<span>Sad</span></button>
-            <button class="mood-btn" data-mood="angry">😡<span>Angry</span></button>
+        <h2 style="margin-bottom: 0.5rem">Log Your Emotions</h2>
+        <p style="margin-bottom: 1.5rem; color: #666; font-size: 0.9rem;">Rate the intensity of each emotion (0 - 10)</p>
+        <div class="emotion-scales" style="display: flex; flex-direction: column; gap: 1.2rem; margin-bottom: 1.5rem;">
+            ${emotions.map(e => `
+                <div style="display: flex; align-items: center;">
+                    <span style="width: 80px; font-weight: 500; font-size: 0.95rem;">${e.emoji} ${e.label}</span>
+                    <input type="range" class="emotion-slider" data-mood="${e.id}" min="0" max="10" value="0" style="flex: 1; margin: 0 1rem; accent-color: ${e.color};" oninput="this.nextElementSibling.textContent=this.value">
+                    <span style="width: 20px; text-align: right; font-weight: bold; color: #555;">0</span>
+                </div>
+            `).join('')}
         </div>
-        <textarea id="mood-note" placeholder="Note..."></textarea>
+        <textarea id="mood-note" placeholder="Any additional notes..."></textarea>
         <button id="save-mood" class="btn-primary" style="margin-top: 1.5rem; width: 100%">Save Entry</button>
     `;
     modal.classList.remove('hidden');
     modal.querySelector('.close-modal').onclick = () => modal.classList.add('hidden');
+    
     document.getElementById('save-mood').onclick = () => {
-        const mood = document.querySelector('.mood-btn.selected')?.dataset.mood || 'calm';
+        const sliders = document.querySelectorAll('.emotion-slider');
+        const emotionData = {};
+        let primaryMood = 'calm';
+        let maxVal = -1;
+
+        sliders.forEach(slider => {
+            const val = parseInt(slider.value);
+            emotionData[slider.dataset.mood] = val;
+            if (val > maxVal) {
+                maxVal = val;
+                primaryMood = slider.dataset.mood;
+            }
+        });
+
         const note = document.getElementById('mood-note').value;
-        state.update({ moodHistory: [...(state.moodHistory || []), { mood, note, timestamp: Date.now() }] });
+        state.update({ 
+            moodHistory: [...(state.moodHistory || []), { 
+                mood: maxVal === 0 ? 'calm' : primaryMood, 
+                intensity: maxVal,
+                emotions: emotionData,
+                note, 
+                timestamp: Date.now() 
+            }] 
+        });
+        
+        if (window.serenity && window.serenity.audio) {
+            window.serenity.audio.playSFX('success');
+        }
         modal.classList.add('hidden');
     };
-    document.querySelectorAll('.mood-btn').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-        };
-    });
 }
 
 function initDashboardCharts(state) {
