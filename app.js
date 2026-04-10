@@ -8,7 +8,7 @@ function initState() {
     const state = {
         user: null,
         currentView: 'dashboard',
-        moodHistory: [],
+        moodHistory: [{ mood: 'calm', note: 'First step into Serenity.', timestamp: Date.now() }],
         preferences: {
             learningStyle: 'visual',
             goals: []
@@ -189,6 +189,10 @@ function renderDashboard(state) {
     const greeting = state.user ? `Welcome back, ${state.user.displayName}` : 'Welcome to Serenity';
     return `
         <div class="view-dashboard">
+            <div class="streak-chip">
+                <i data-lucide="award"></i>
+                <span>1 Day Streak!</span>
+            </div>
             <h1 class="section-title">${greeting}</h1>
             <div class="grid-2">
                 <div class="card">

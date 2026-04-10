@@ -64,6 +64,7 @@ body {
 .logo-icon {
     width: 28px;
     height: 28px;
+    color: var(--accent-mint);
 }
 
 .nav-links {
@@ -135,6 +136,19 @@ main {
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
+    position: relative;
+    display: inline-block;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 40px;
+    height: 4px;
+    background: var(--accent-mint);
+    border-radius: 2px;
 }
 
 /* Floating Action Button */
@@ -159,6 +173,20 @@ main {
 .fab:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(251, 113, 133, 0.45);
+}
+
+/* Streak Indicator */
+.streak-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--accent-soft-mint);
+    color: #065f46; /* Deep mint text */
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
 }
 
 /* Loading Screen */
