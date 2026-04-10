@@ -105,6 +105,15 @@ function renderDashboard(state) {
             </div>
 
             <div class="card">
+                <h3>Achievements</h3>
+                <div class="badge-row">
+                    <div class="badge ${state.moodHistory.length >= 1 ? 'earned' : ''}" title="Log your first mood">🌱</div>
+                    <div class="badge ${state.moodHistory.length >= 5 ? 'earned' : ''}" title="Log 5 moods">🌟</div>
+                    <div class="badge ${state.moodHistory.length >= 10 ? 'earned' : ''}" title="Log 10 moods">🏆</div>
+                </div>
+            </div>
+
+            <div class="card">
                 <h3>Recommended for you</h3>
                 <div class="suggestion-list">
                     <div class="suggestion-item">
@@ -212,9 +221,45 @@ function attachExerciseListeners(state) {
             const container = document.getElementById('main-content');
             if (id === 'breathing') {
                 startBreathing(container, { voice: state.preferences.learningStyle === 'auditory' });
+            } else if (id === 'reframing') {
+                startReframing(container, state);
             }
         };
     });
+}
+
+/**
+ * Component: Cognitive Reframing Session
+ */
+export function startReframing(container, state) {
+    container.innerHTML = `
+        <div class="reframing-session">
+            <h2 class="section-title">Cognitive Reframing</h2>
+            <p class="text-secondary">Transform negative thought patterns into balanced perspectives.</p>
+            
+            <div class="card" style="margin-top: 2rem">
+                <label>Identify the Negative Thought</label>
+                <textarea id="neg-thought" placeholder="e.g., 'I always fail at everything...'"></textarea>
+                
+                <div style="margin: 2rem 0; border-left: 4px solid var(--accent-emerald); padding-left: 1rem;">
+                    <p><strong>Reflection:</strong> Is there evidence that contradicts this thought? What would you say to a friend in this situation?</p>
+                </div>
+
+                <label>A Balanced Perspective</label>
+                <textarea id="pos-thought" placeholder="e.g., 'I struggled today, but I have succeeded before...'"></textarea>
+                
+                <button id="save-reframe" class="btn-primary" style="margin-top: 1.5rem; width: 100%">Save Reflection</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('save-reframe').onclick = () => {
+        const neg = document.getElementById('neg-thought').value;
+        const pos = document.getElementById('pos-thought').value;
+        const entry = { type: 'reframe', neg, pos, timestamp: Date.now() };
+        state.update({ moodHistory: [...(state.moodHistory || []), entry] });
+        window.serenity.navTo('journal');
+    };
 }
 
 
