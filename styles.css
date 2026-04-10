@@ -8,9 +8,10 @@
     --accent-lavender: #a855f7; /* Lavender */
     --accent-soft-lavender: #f3e8ff;
     --bg-secondary: #fafaf9; /* Light Beige */
+    --bg-card: #D8C8B8; /* Taupe */
     --white: #ffffff;
     --glass-nav: rgba(255, 218, 185, 0.8); /* Semi-transparent Peach */
-    --border-soft: rgba(0, 0, 0, 0.05);
+    --border-soft: rgba(0, 0, 0, 0.08);
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -142,7 +143,7 @@ main {
 
 /* Dashboard Cards */
 .card {
-    background: var(--white);
+    background: var(--bg-card);
     border: 1px solid var(--border-soft);
     border-radius: 16px;
     padding: 1.5rem;
@@ -164,6 +165,88 @@ main {
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 700;
+}
+
+/* Resource Library Styles */
+.resource-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    padding-top: 2.5rem; /* Space for tag */
+}
+
+.resource-type-tag {
+    position: absolute;
+    top: 1rem;
+    left: 1.5rem;
+    background: var(--accent-soft-lavender);
+    color: var(--accent-lavender);
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.resource-content {
+    display: flex;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.resource-icon-box {
+    width: 48px;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.resource-text h3 {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.resource-author {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.resource-summary {
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.resource-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border-soft);
+    padding-top: 1rem;
+}
+
+.btn-bookmark {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: var(--transition-base);
+}
+
+.btn-bookmark:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.btn-bookmark.active {
+    color: var(--accent-mint);
 }
 
 .section-title {

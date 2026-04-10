@@ -9,6 +9,7 @@ function initState() {
         user: null,
         currentView: 'dashboard',
         moodHistory: [{ mood: 'calm', note: 'First step into Serenity.', timestamp: Date.now() }],
+        bookmarks: [],
         preferences: {
             learningStyle: 'visual',
             goals: []
@@ -28,8 +29,8 @@ function initState() {
         } catch (e) { console.error('Failed to load local state:', e); }
     }
     state.subscribe((latest) => {
-        const { user, preferences, moodHistory } = latest;
-        localStorage.setItem('serenity_state', JSON.stringify({ user, preferences, moodHistory }));
+        const { user, preferences, moodHistory, bookmarks } = latest;
+        localStorage.setItem('serenity_state', JSON.stringify({ user, preferences, moodHistory, bookmarks }));
     });
     return state;
 }
@@ -176,6 +177,10 @@ function renderView(state, container) {
         case 'journal':
             container.innerHTML = renderJournal(state);
             break;
+        case 'resources':
+            container.innerHTML = renderResources(state);
+            attachResourceListeners(state);
+            break;
         case 'profile':
             container.innerHTML = renderProfile(state);
             break;
@@ -256,6 +261,65 @@ function renderJournal(state) {
         `).reverse().join('')
         : '<p class="text-secondary">Your journal is empty.</p>';
     return `<div class="view-journal"><h1 class="section-title">Emotional History</h1><div class="card journal-list">${logItems}</div></div>`;
+}
+
+function renderResources(state) {
+    const resources = [
+        { id: 'v1', type: 'video', category: 'Expert Video', title: 'Permission to Feel', author: 'Dr. Marc Brackett (Yale)', summary: 'A guide to recognizing and labeling emotions to win at life.', link: 'https://www.youtube.com/watch?v=fV0L_n5In8Y', icon: 'play-circle' },
+        { id: 'v2', type: 'video', category: 'Expert Video', title: 'The Science of Regulation', author: 'Dr. James Gross', summary: 'A deep dive into the process model of emotion regulation.', link: 'https://www.youtube.com/watch?v=1V77HStqSg4', icon: 'play-circle' },
+        { id: 'a1', type: 'article', category: 'Educational Article', title: 'Emotional Intelligence 101', summary: 'An evidence-based guide to decoding the five pillars of EQ.', link: 'https://positivepsychology.com/emotional-intelligence-eq/', icon: 'file-text' },
+        { id: 'a2', type: 'article', category: 'Educational Article', title: 'Stress Management Guide', summary: 'Practical techniques for managing high-stress environments and recovery.', link: 'https://www.helpguide.org/articles/stress/stress-management.htm', icon: 'file-text' },
+        { id: 'b1', type: 'book', category: 'Recommended Reading', title: 'The Body Keeps the Score', author: 'Bessel van der Kolk', summary: 'Official resource page for understanding the physical impact of trauma.', link: 'https://www.besselvanderkolk.com/resources/the-body-keeps-the-score', icon: 'book-open' },
+        { id: 'b2', type: 'book', category: 'Recommended Reading', title: 'Emotional Intelligence 2.0', author: 'Travis Bradberry', summary: 'Strategies for increasing your self-awareness and relationship skills.', link: 'https://www.talentsmart.com/emotional-intelligence/', icon: 'book-open' }
+    ];
+
+    const isBookmarked = (id) => state.bookmarks?.includes(id);
+
+    const resourceItems = resources.map(res => `
+        <div class="card resource-card" data-id="${res.id}">
+            <div class="resource-type-tag">${res.category}</div>
+            <div class="resource-content">
+                <div class="resource-icon-box"><i data-lucide="${res.icon}"></i></div>
+                <div class="resource-text">
+                    <h3>${res.title}</h3>
+                    ${res.author ? `<p class="resource-author">by ${res.author}</p>` : ''}
+                    <p class="resource-summary text-secondary">${res.summary}</p>
+                </div>
+            </div>
+            <div class="resource-actions">
+                <button class="btn-bookmark ${isBookmarked(res.id) ? 'active' : ''}" data-id="${res.id}">
+                    <i data-lucide="bookmark" ${isBookmarked(res.id) ? 'fill="currentColor"' : ''}></i>
+                </button>
+                <a href="${res.link}" target="_blank" class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Explore</a>
+            </div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="view-resources">
+            <h1 class="section-title">Educational Hub</h1>
+            <p class="text-secondary" style="margin-bottom: 2rem">Explore psychological strategies and expert guidance for your regulation journey.</p>
+            <div class="resource-list grid-2">
+                ${resourceItems}
+            </div>
+        </div>
+    `;
+}
+
+function attachResourceListeners(state) {
+    document.querySelectorAll('.btn-bookmark').forEach(btn => {
+        btn.onclick = (e) => {
+            e.preventDefault();
+            const id = btn.dataset.id;
+            let bookmarks = [...(state.bookmarks || [])];
+            if (bookmarks.includes(id)) {
+                bookmarks = bookmarks.filter(b => b !== id);
+            } else {
+                bookmarks.push(id);
+            }
+            state.update({ bookmarks });
+        };
+    });
 }
 
 function renderProfile(state) {
