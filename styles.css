@@ -132,6 +132,22 @@ main {
     margin-bottom: 1.5rem;
 }
 
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.trend-label {
+    background: var(--accent-soft-mint);
+    color: #059669;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
 .section-title {
     font-size: 1.5rem;
     font-weight: 700;
