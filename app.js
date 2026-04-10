@@ -1010,7 +1010,10 @@ window.serenity.selectObStyle = (el) => {
     document.querySelectorAll('.ob-style-opt').forEach(btn => btn.classList.remove('selected-style'));
     el.classList.add('selected-style');
     const style = el.dataset.style;
-    state.update(window.serenity.obNext = (currentStep) => {
+    state.update({ preferences: { ...state.preferences, learningStyle: style } });
+};
+
+window.serenity.obNext = (currentStep) => {
     const overlay = document.getElementById('onboarding-overlay');
     
     if (currentStep === 1) {
