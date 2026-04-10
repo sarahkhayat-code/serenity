@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serenity | Emotion Regulation Training</title>
+    <!-- SEO & Meta -->
+    <meta name="description" content="A professional emotion regulation training app for tracking mood and practicing mindfulness.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Libraries (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="light-mode">
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="glass-nav">
+            <div class="nav-content">
+                <div class="logo">
+                    <i data-lucide="wind" class="logo-icon"></i>
+                    <span>Serenity</span>
+                </div>
+                <div class="nav-links">
+                    <button id="nav-dashboard" class="nav-item active">Dashboard</button>
+                    <button id="nav-exercises" class="nav-item">Exercises</button>
+                    <button id="nav-journal" class="nav-item">Journal</button>
+                    <button id="nav-profile" class="nav-item circle-btn">S</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area (Dynamic) -->
+        <main id="main-content">
+            <div class="loading-screen">
+                <div class="spinner"></div>
+                <p>Establishing presence...</p>
+            </div>
+        </main>
+        
+        <!-- Quick Action Button -->
+        <button id="quick-log-btn" class="fab">
+            <i data-lucide="plus"></i>
+        </button>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-container" class="hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-card">
+            <button class="close-modal"><i data-lucide="x"></i></button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="app.js"></script>
+    <script>
+        // Initialize icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
