@@ -1010,40 +1010,39 @@ window.serenity.selectObStyle = (el) => {
     document.querySelectorAll('.ob-style-opt').forEach(btn => btn.classList.remove('selected-style'));
     el.classList.add('selected-style');
     const style = el.dataset.style;
-    state.update({ preferences: { ...state.preferences, learningStyle: style } });
-};
-
-window.serenity.obNext = (currentStep) => {
+    state.update(window.serenity.obNext = (currentStep) => {
     const overlay = document.getElementById('onboarding-overlay');
     
     if (currentStep === 1) {
         const name = document.getElementById('ob-name').value || 'Friend';
         state.update({ user: { displayName: name } });
         
+        const emotions = [
+            { id: 'happy', label: 'Happy', emoji: '😊', color: 'var(--accent-mint)' },
+            { id: 'calm', label: 'Calm', emoji: '😌', color: 'var(--accent-lavender)' },
+            { id: 'anxious', label: 'Anxious', emoji: '😟', color: 'var(--accent-coral)' },
+            { id: 'sad', label: 'Sad', emoji: '😢', color: '#60a5fa' },
+            { id: 'angry', label: 'Angry', emoji: '😡', color: '#ef4444' }
+        ];
+
         overlay.innerHTML = `
             <div class="onboarding-card card">
-                <h1>Step 2: Current Mood</h1>
-                <p class="text-secondary" style="margin-bottom: 2rem">How are you feeling in this moment?</p>
+                <h1 style="margin-bottom: 0.5rem;">Step 2: Log Your Emotions</h1>
+                <p class="text-secondary" style="margin-bottom: 2rem">Rate the intensity of what you're feeling right now.</p>
                 
-                <div class="mood-selector" style="margin-bottom: 2rem">
-                    <button class="mood-btn ob-mood-opt" data-mood="happy" onclick="window.serenity.selectObMood(this)">😊<span>Happy</span></button>
-                    <button class="mood-btn ob-mood-opt" data-mood="calm" onclick="window.serenity.selectObMood(this)">😌<span>Calm</span></button>
-                    <button class="mood-btn ob-mood-opt" data-mood="anxious" onclick="window.serenity.selectObMood(this)">😟<span>Anxious</span></button>
-                    <button class="mood-btn ob-mood-opt" data-mood="sad" onclick="window.serenity.selectObMood(this)">😢<span>Sad</span></button>
-                    <button class="mood-btn ob-mood-opt" data-mood="angry" onclick="window.serenity.selectObMood(this)">😡<span>Angry</span></button>
-                </div>
-
-                <div style="text-align: left; margin-bottom: 2rem">
-                    <label style="font-weight: 600; display: block; margin-bottom: 1rem">Intensity (1-10)</label>
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <input type="range" id="ob-intensity" min="1" max="10" value="5" style="flex: 1; accent-color: var(--accent-coral);" oninput="document.getElementById('intensity-val').textContent = this.value">
-                        <span id="intensity-val" style="font-weight: 700; font-size: 1.2rem; min-width: 1.5rem">5</span>
-                    </div>
+                <div class="emotion-scales" style="display: flex; flex-direction: column; gap: 1.2rem; margin-bottom: 2rem; max-height: 250px; overflow-y: auto; padding-right: 10px;">
+                    ${emotions.map(e => `
+                        <div style="display: flex; align-items: center;">
+                            <span style="width: 80px; font-weight: 500; font-size: 0.95rem; text-align: left;">${e.emoji} ${e.label}</span>
+                            <input type="range" class="ob-emotion-slider" data-mood="${e.id}" min="0" max="10" value="0" style="flex: 1; margin: 0 1rem; accent-color: ${e.color};" oninput="this.nextElementSibling.textContent=this.value">
+                            <span style="width: 20px; text-align: right; font-weight: bold; color: #555;">0</span>
+                        </div>
+                    `).join('')}
                 </div>
 
                 <div style="text-align: left; margin-bottom: 2rem">
                     <label style="font-weight: 600; display: block; margin-bottom: 0.5rem">What's contributing to this feeling?</label>
-                    <textarea id="ob-mood-note" placeholder="Write a few thoughts..." style="margin-top: 0; min-height: 100px;"></textarea>
+                    <textarea id="ob-mood-note" placeholder="Write a few thoughts..." style="margin-top: 0; min-height: 80px;"></textarea>
                 </div>
 
                 <div style="display: flex; gap: 1rem;">
@@ -1055,18 +1054,32 @@ window.serenity.obNext = (currentStep) => {
     }
 };
 
-window.serenity.selectObMood = (el) => {
-    document.querySelectorAll('.ob-mood-opt').forEach(btn => btn.classList.remove('selected'));
-    el.classList.add('selected');
-};
-
 window.serenity.finishOnboarding = () => {
-    const mood = document.querySelector('.ob-mood-opt.selected')?.dataset.mood || 'calm';
-    const intensity = document.getElementById('ob-intensity').value;
+    const sliders = document.querySelectorAll('.ob-emotion-slider');
+    const emotionData = {};
+    let primaryMood = 'calm';
+    let maxVal = -1;
+
+    sliders.forEach(slider => {
+        const val = parseInt(slider.value);
+        emotionData[slider.dataset.mood] = val;
+        if (val > maxVal) {
+            maxVal = val;
+            primaryMood = slider.dataset.mood;
+        }
+    });
+
     const note = document.getElementById('ob-mood-note').value;
     
-    const entry = { mood, note: `Initial Check-in: ${note}`, intensity, timestamp: Date.now() };
+    const entry = { 
+        mood: maxVal === 0 ? 'calm' : primaryMood, 
+        note: `Initial Check-in: ${note}`, 
+        intensity: maxVal,
+        emotions: emotionData,
+        timestamp: Date.now() 
+    };
     
+    window.serenity.audio.playSFX('success');
     state.update({ 
         moodHistory: [...(state.moodHistory || []), entry],
         hasCompletedOnboarding: true,
