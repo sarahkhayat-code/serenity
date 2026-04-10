@@ -10,6 +10,7 @@ function initState() {
         currentView: 'dashboard',
         moodHistory: [{ mood: 'calm', note: 'First step into Serenity.', timestamp: Date.now() }],
         bookmarks: [],
+        hasCompletedOnboarding: false,
         preferences: {
             learningStyle: 'visual',
             goals: []
@@ -29,8 +30,8 @@ function initState() {
         } catch (e) { console.error('Failed to load local state:', e); }
     }
     state.subscribe((latest) => {
-        const { user, preferences, moodHistory, bookmarks } = latest;
-        localStorage.setItem('serenity_state', JSON.stringify({ user, preferences, moodHistory, bookmarks }));
+        const { user, preferences, moodHistory, bookmarks, hasCompletedOnboarding } = latest;
+        localStorage.setItem('serenity_state', JSON.stringify({ user, preferences, moodHistory, bookmarks, hasCompletedOnboarding }));
     });
     return state;
 }
@@ -228,9 +229,11 @@ function renderDashboard(state) {
 }
 
 function renderExercises(state) {
+    const style = state.preferences.learningStyle;
     return `
         <div class="view-exercises">
             <h1 class="section-title">Training Modules</h1>
+            <p class="text-secondary" style="margin-bottom: 2rem">Personalized for your <strong>${style}</strong> learning style.</p>
             <div class="grid-2">
                 <div class="card exercise-card" data-id="breathing">
                     <div class="icon-box"><i data-lucide="wind"></i></div>
@@ -238,6 +241,20 @@ function renderExercises(state) {
                     <p>Regulate your nervous system.</p>
                     <button class="start-btn btn-primary">Practice</button>
                 </div>
+                ${style === 'writing' ? `
+                <div class="card exercise-card" data-id="reflection">
+                    <div class="icon-box"><i data-lucide="pen-tool"></i></div>
+                    <h3>Deep Reflection</h3>
+                    <p>Journaling prompts for clarity.</p>
+                    <button class="start-btn btn-primary">Begin</button>
+                </div>` : ''}
+                ${style === 'kinesthetic' ? `
+                <div class="card exercise-card" data-id="centering">
+                    <div class="icon-box"><i data-lucide="move"></i></div>
+                    <h3>Physical Centering</h3>
+                    <p>Shift your mood through movement.</p>
+                    <button class="start-btn btn-primary">Start</button>
+                </div>` : ''}
                 <div class="card exercise-card" data-id="reframing">
                     <div class="icon-box"><i data-lucide="message-square"></i></div>
                     <h3>Cognitive Reframe</h3>
@@ -352,8 +369,85 @@ function attachExerciseListeners(state) {
             const container = document.getElementById('main-content');
             if (id === 'breathing') startBreathing(container, { voice: state.preferences.learningStyle === 'auditory' });
             else if (id === 'reframing') startReframing(container, state);
+            else if (id === 'centering') startCentering(container, state);
+            else if (id === 'reflection') startReflection(container, state);
         };
     });
+}
+
+function startCentering(container, state) {
+    container.innerHTML = `
+        <div class="centering-session" style="text-align: center;">
+            <h2 class="section-title">Physical Centering</h2>
+            <p class="text-secondary">Drag the tense bubble into the calm harbor below.</p>
+            <div id="centering-area" style="height: 400px; position: relative; background: rgba(0,0,0,0.02); border-radius: 20px; margin-top: 2rem; overflow: hidden;">
+                <div id="tense-bubble" style="width: 80px; height: 80px; background: #fb7185; border-radius: 50%; position: absolute; left: 50%; top: 50px; transform: translateX(-50%); cursor: grab; box-shadow: 0 4px 15px rgba(251, 113, 133, 0.4); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">TENSE</div>
+                <div id="calm-harbor" style="width: 120px; height: 120px; background: var(--accent-soft-mint); border: 4px dashed var(--accent-mint); border-radius: 50%; position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; color: var(--accent-mint); font-weight: 600;">CALM</div>
+            </div>
+            <p id="centering-success" class="hidden" style="margin-top: 1.5rem; color: var(--accent-mint); font-weight: 600;">Excellent. You've centered yourself.</p>
+            <button class="btn-primary" style="margin-top: 2rem" onclick="window.serenity.navTo('dashboard')">Finish</button>
+        </div>
+    `;
+
+    const bubble = document.getElementById('tense-bubble');
+    const harbor = document.getElementById('calm-harbor');
+    let isDragging = false;
+    let offset = { x: 0, y: 0 };
+
+    bubble.onmousedown = (e) => {
+        isDragging = true;
+        bubble.style.cursor = 'grabbing';
+        offset = { x: e.clientX - bubble.offsetLeft, y: e.clientY - bubble.offsetTop };
+    };
+
+    document.onmousemove = (e) => {
+        if (!isDragging) return;
+        const x = e.clientX - offset.x;
+        const y = e.clientY - offset.y;
+        bubble.style.left = x + 'px';
+        bubble.style.top = y + 'px';
+
+        // Check collision
+        const bRect = bubble.getBoundingClientRect();
+        const hRect = harbor.getBoundingClientRect();
+        if (bRect.top < hRect.bottom && bRect.bottom > hRect.top && bRect.left < hRect.right && bRect.right > hRect.left) {
+            bubble.style.background = '#34d399';
+            bubble.textContent = 'CALM';
+            document.getElementById('centering-success').classList.remove('hidden');
+        }
+    };
+
+    document.onmouseup = () => {
+        isDragging = false;
+        bubble.style.cursor = 'grab';
+    };
+}
+
+function startReflection(container, state) {
+    const prompts = [
+        "What is one thing you can control right now?",
+        "Describe a moment today when you felt at peace.",
+        "What does resilience mean to you in this moment?",
+        "If your emotion was a color, what would it be and why?"
+    ];
+    const prompt = prompts[Math.floor(Math.random() * prompts.length)];
+
+    container.innerHTML = `
+        <div class="reflection-session">
+            <h2 class="section-title">Deep Reflection</h2>
+            <div class="card" style="margin-top: 2rem">
+                <p style="font-style: italic; color: var(--accent-lavender); margin-bottom: 1.5rem">"${prompt}"</p>
+                <textarea id="reflection-text" placeholder="Pour your thoughts onto the page..."></textarea>
+                <button id="save-reflection" class="btn-primary" style="margin-top: 1.5rem; width: 100%">Complete Journal Entry</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('save-reflection').onclick = () => {
+        const note = document.getElementById('reflection-text').value;
+        const entry = { mood: 'calm', note: `Reflection: ${note}`, timestamp: Date.now() };
+        state.update({ moodHistory: [...(state.moodHistory || []), entry] });
+        window.serenity.navTo('journal');
+    };
 }
 
 function getMoodEmoji(mood) {
@@ -467,5 +561,85 @@ window.serenity = {
 document.addEventListener('DOMContentLoaded', () => {
     initUI(state);
     initAuth(state, true);
-    state.update({ currentView: 'dashboard' });
+    
+    if (!state.hasCompletedOnboarding) {
+        showOnboarding(state);
+    } else {
+        state.update({ currentView: 'dashboard' });
+    }
 });
+
+function showOnboarding(state) {
+    const main = document.getElementById('main-content');
+    main.innerHTML = `
+        <div id="onboarding-overlay">
+            <div class="onboarding-card card" id="onboarding-step-1">
+                <h1>Welcome to Serenity</h1>
+                <p class="text-secondary">Your path to emotional resilience starts here. Let's personalize your experience.</p>
+                <div style="margin-top: 2rem">
+                    <label>What should we call you?</label>
+                    <input type="text" id="ob-name" placeholder="Enter your name" style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; border: 1px solid var(--border-soft); border-radius: 12px;">
+                </div>
+                <button class="btn-primary" style="margin-top: 2rem; width: 100%" onclick="window.serenity.obNext(1)">Next</button>
+            </div>
+        </div>
+    `;
+}
+
+window.serenity.obNext = (currentStep) => {
+    const overlay = document.getElementById('onboarding-overlay');
+    if (currentStep === 1) {
+        const name = document.getElementById('ob-name').value || 'Friend';
+        state.update({ user: { displayName: name } });
+        overlay.innerHTML = `
+            <div class="onboarding-card card" id="onboarding-step-2">
+                <h1>What are your goals?</h1>
+                <p class="text-secondary">Select what you'd like to work on.</p>
+                <div class="goal-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem">
+                    <button class="goal-btn card" onclick="this.classList.toggle('selected')">Reduce Stress</button>
+                    <button class="goal-btn card" onclick="this.classList.toggle('selected')">Better Sleep</button>
+                    <button class="goal-btn card" onclick="this.classList.toggle('selected')">Daily Focus</button>
+                    <button class="goal-btn card" onclick="this.classList.toggle('selected')">Resilience</button>
+                </div>
+                <button class="btn-primary" style="margin-top: 2rem; width: 100%" onclick="window.serenity.obNext(2)">Next</button>
+            </div>
+        `;
+    } else if (currentStep === 2) {
+        overlay.innerHTML = `
+            <div class="onboarding-card card" id="onboarding-step-3">
+                <h1>How do you learn best?</h1>
+                <p class="text-secondary">We will tailor your exercises to this style.</p>
+                <div class="style-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem">
+                    <button class="style-btn card" onclick="window.serenity.setObStyle('visual')">
+                        <div style="font-size: 2rem">👁️</div>
+                        <div style="font-weight: 600">Visual</div>
+                        <div style="font-size: 0.75rem" class="text-secondary">Graphics & Colors</div>
+                    </button>
+                    <button class="style-btn card" onclick="window.serenity.setObStyle('auditory')">
+                        <div style="font-size: 2rem">🎧</div>
+                        <div style="font-weight: 600">Auditory</div>
+                        <div style="font-size: 0.75rem" class="text-secondary">Voice & Music</div>
+                    </button>
+                    <button class="style-btn card" onclick="window.serenity.setObStyle('kinesthetic')">
+                        <div style="font-size: 2rem">🖐️</div>
+                        <div style="font-weight: 600">Kinesthetic</div>
+                        <div style="font-size: 0.75rem" class="text-secondary">Hands-on Tasks</div>
+                    </button>
+                    <button class="style-btn card" onclick="window.serenity.setObStyle('writing')">
+                        <div style="font-size: 2rem">✍️</div>
+                        <div style="font-weight: 600">Writing</div>
+                        <div style="font-size: 0.75rem" class="text-secondary">Journaling</div>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+};
+
+window.serenity.setObStyle = (style) => {
+    state.update({ 
+        preferences: { ...state.preferences, learningStyle: style },
+        hasCompletedOnboarding: true,
+        currentView: 'dashboard' 
+    });
+};

@@ -543,3 +543,49 @@ textarea:focus {
     .nav-links span { display: none; }
     .nav-content { padding: 0 1rem; }
 }
+
+/* Onboarding Flow */
+#onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+    padding: 1.5rem;
+}
+
+.onboarding-card {
+    width: 100%;
+    max-width: 500px;
+    text-align: center;
+    padding: 3rem 2rem !important;
+    animation: fadeIn 0.8s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.goal-grid button, .style-grid button {
+    width: 100%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: var(--transition-base);
+    text-align: center;
+    padding: 1.5rem 1rem;
+    margin: 0;
+}
+
+.goal-btn.selected {
+    border-color: var(--accent-mint);
+    background: var(--accent-soft-mint) !important;
+}
+
+.style-btn:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent-lavender);
+    box-shadow: var(--shadow-md);
+}
