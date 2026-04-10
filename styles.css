@@ -1,5 +1,5 @@
 :root {
-    --bg-main: #f0f9ff; /* Soft Blue */
+    --bg-main: #FFDAB9; /* Peach */
     --text-primary: #1e293b;
     --text-secondary: #64748b;
     --accent-coral: #fb7185; /* Coral */
@@ -9,8 +9,8 @@
     --accent-soft-lavender: #f3e8ff;
     --bg-secondary: #fafaf9; /* Light Beige */
     --white: #ffffff;
-    --glass-nav: rgba(240, 249, 255, 0.8);
-    --border-soft: #e2e8f0;
+    --glass-nav: rgba(255, 218, 185, 0.8); /* Semi-transparent Peach */
+    --border-soft: rgba(0, 0, 0, 0.05);
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -56,9 +56,27 @@ body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+}
+
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.logo-text span:first-child {
     font-weight: 700;
     font-size: 1.25rem;
     color: var(--accent-lavender);
+    line-height: 1;
+}
+
+.tagline {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+    margin-top: 2px;
 }
 
 .logo-icon {
